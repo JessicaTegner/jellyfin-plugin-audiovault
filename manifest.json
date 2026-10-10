@@ -1,0 +1,20 @@
+[
+    {
+        "guid": "4a6f2c1e-7b0d-4c5e-9a43-2f8b6d1e0a57",
+        "name": "AudioVault",
+        "description": "Indexes the AudioVault catalog as .strm libraries so every title is searchable in Jellyfin. Pressing play downloads that title, wraps the audio in an MP4 with a black video track and caches it.\n",
+        "overview": "Audio-described movies and shows from AudioVault, downloaded on demand",
+        "owner": "JessicaTegner",
+        "category": "Metadata",
+        "versions": [
+            {
+                "version": "0.1.0.0",
+                "changelog": "Initial release.\n",
+                "targetAbi": "12.2.0.0",
+                "sourceUrl": "https://github.com/JessicaTegner/jellyfin-plugin-audiovault/releases/download/v0.1.0/audiovault_0.1.0.0.zip",
+                "checksum": "026f9d88fd29f15a5b464e19c0ecba74",
+                "timestamp": "2026-10-10T22:42:45Z"
+            }
+        ]
+    }
+]
