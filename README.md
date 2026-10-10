@@ -13,11 +13,16 @@ Status: beta. Expect rough edges, and please report problems.
 
 ## Install
 
-1. In Jellyfin, open Dashboard → Plugins → Repositories and add `https://jessicategner.github.io/jellyfin-plugin-audiovault/manifest.json`.
-2. Open the plugin catalogue and install AudioVault.
-3. Restart Jellyfin.
+1. Add the plugin repository:
+   1. In Jellyfin, open the menu and choose Dashboard, under Administration. In the dashboard's menu, choose Plugins.
+   2. Press "Manage Repositories", then "New Repository".
+   3. Enter `AudioVault` as the Repository Name and `https://jessicategner.github.io/jellyfin-plugin-audiovault/manifest.json` as the Repository URL, then press "Add".
+2. Install the plugin:
+   1. Go back to Plugins. Search for AudioVault, or find it under "Available", and open it.
+   2. Press "Install". Jellyfin warns that third-party plugins carry risks; press "Install" again to confirm.
+3. Restart Jellyfin: open the Dashboard, press "Restart", and confirm.
 
-Then open Dashboard → Plugins → AudioVault and follow the setup checklist.
+Then open AudioVault from Plugins, press "Settings", and follow the setup checklist.
 
 ## Documentation
 
