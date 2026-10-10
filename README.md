@@ -26,6 +26,12 @@ Then open Dashboard → Plugins → AudioVault and follow the setup checklist.
 - [Changelog](CHANGELOG.md)
 - [Development](docs/development.md): building, testing and the project layout.
 
+## Support
+
+The plugin is free. If you'd like to support its development: [GitHub Sponsors](https://github.com/sponsors/JessicaTegner) or [PayPal](https://paypal.me/JessicaTegner).
+
+AudioVault runs on donations too: [support AudioVault](https://www.paypal.me/audiodescribed).
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE).
