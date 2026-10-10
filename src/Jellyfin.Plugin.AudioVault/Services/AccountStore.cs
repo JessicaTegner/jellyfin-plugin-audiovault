@@ -292,11 +292,12 @@ public sealed class AccountStore
         }
     }
 
-    // Normally one more than before. Never below the current time in milliseconds either, so a generation stays new
-    // even if the file with the old ones was lost (set aside as damaged) and a ticket from before still exists.
+    // Above every generation handed out so far, to any user, so no two savings share one. Never below the current time
+    // in milliseconds either, so a generation stays new even if the file with the old ones was lost (set aside as
+    // damaged) and a ticket from before still exists.
     private Dictionary<Guid, long> NextGeneration(Guid userId) => new(_generations)
     {
-        [userId] = Math.Max(_generations.GetValueOrDefault(userId) + 1, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+        [userId] = Math.Max(_generations.Values.DefaultIfEmpty(0).Max() + 1, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
     };
 
     // The user id is bound as associated data, so an entry can't be moved to another user.
