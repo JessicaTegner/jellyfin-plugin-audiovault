@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>AudioVault</title>
+</head>
+<body>
+<div id="AudioVaultConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <style>
+        /* --av-warning is set from the theme's actual background (see warningColour); until then the theme's text colour. */
+        #AudioVaultConfigPage .avWarning { font-weight: 600; color: var(--av-warning, inherit); }
+    </style>
+    <div data-role="content">
+        <div class="content-primary">
+            <h1>AudioVault</h1>
+
+            <section aria-labelledby="avSetupHeading">
+                <h2 id="avSetupHeading" tabindex="-1">Setup</h2>
+                <p id="avSetupSummary" hidden style="display:none">
+                    <span id="avSetupSummaryText">Setup complete.</span>
+                    <button is="emby-button" type="button" id="avSetupToggle" class="raised button-alt" aria-expanded="false" aria-controls="avSetupSteps"><span>Show setup steps</span></button>
+                </p>
+                <p id="avSetupError" hidden style="display:none"></p>
+                <ol id="avSetupSteps" aria-labelledby="avSetupHeading">
+                    <li data-key="loading">Loading setup steps…</li>
+                </ol>
+            </section>
+
+            <section aria-labelledby="avStatusHeading">
+                <h2 id="avStatusHeading">Status</h2>
+                <div id="avUrlWarning" role="alert" class="avWarning"></div>
+                <div id="avWarnings" class="avWarning"></div>
+                <div id="avStatus" role="status" aria-live="polite"></div>
+                <div id="avProgress">
+                    <div id="avStatusLines"><p data-key="loading">Loading status…</p></div>
+                    <h3 id="avTasksHeading">Tasks</h3>
+                    <ul id="avTasks" role="list" aria-labelledby="avTasksHeading" style="list-style:none;padding:0"></ul>
+                    <h3 id="avJobsHeading">Downloads and conversions</h3>
+                    <ul id="avJobs" role="list" aria-labelledby="avJobsHeading" style="list-style:none;padding:0"></ul>
+                    <p class="fieldDescription">This status updates every few seconds while the page is open. Tasks starting or finishing and finished downloads are announced.</p>
+                </div>
+                <div style="margin-top:1em">
+                    <button is="emby-button" type="button" id="avRefresh" class="raised button-alt block"><span>Refresh status</span></button>
+                    <button is="emby-button" type="button" id="avCheck" class="raised button-alt block"><span>Check AudioVault connection</span></button>
+                    <button is="emby-button" type="button" id="avSyncRecent" class="raised button-alt block"><span>Sync recent uploads now</span></button>
+                    <button is="emby-button" type="button" id="avSyncFull" class="raised button-alt block"><span>Run full catalog sync now</span></button>
+                </div>
+                <p id="avCreateAgain" hidden style="display:none;margin-top:1em">
+                    <button is="emby-button" type="button" id="avCreateToggle" class="raised button-alt block" aria-expanded="false" aria-controls="avCreate"><span>Create the libraries again</span></button>
+                </p>
+                <div id="avCreate">
+                    <fieldset class="verticalSection" aria-describedby="avNewLibrariesNote" style="margin-top:1em">
+                        <legend>Options for the new libraries</legend>
+                        <p class="fieldDescription" id="avNewLibrariesNote">Fewer image types make the first library scan faster. You can change these later in Jellyfin's own library settings (Dashboard → Libraries → Manage library).</p>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="avLibOmdb" checked aria-describedby="avLibOmdbDescription" />
+                                <span>Use OMDb as an extra metadata source for movies</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription" id="avLibOmdbDescription">Adds ratings and details from The Open Movie Database to what TheMovieDb provides.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="avLibPosters" checked aria-describedby="avLibPostersDescription" />
+                                <span>Posters (primary images)</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription" id="avLibPostersDescription">The main picture for each movie and show.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="avLibBackdrops" checked aria-describedby="avLibBackdropsDescription" />
+                                <span>Backdrops</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription" id="avLibBackdropsDescription">Background art behind the details page.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="avLibExtraArtwork" checked aria-describedby="avLibExtraArtworkDescription" />
+                                <span>Logos, banners, thumbs, disc art and clear art</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription" id="avLibExtraArtworkDescription">Extra artwork some clients and themes show.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="avLibSeasonImages" checked aria-describedby="avLibSeasonImagesDescription" />
+                                <span>Season images</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription" id="avLibSeasonImagesDescription">A poster for every season.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="avLibEpisodeImages" checked aria-describedby="avLibEpisodeImagesDescription" />
+                                <span>Episode images (stills)</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription" id="avLibEpisodeImagesDescription">A small picture for every episode; skipping it saves thousands of downloads for big libraries.</div>
+                        </div>
+                    </fieldset>
+                    <div>
+                        <button is="emby-button" type="button" id="avCreateLibraries" class="raised button-alt block"><span>Create AudioVault libraries in Jellyfin</span></button>
+                    </div>
+                </div>
+            </section>
+
+            <section aria-labelledby="avDiagnosticsHeading">
+                <h2 id="avDiagnosticsHeading">Diagnostic report</h2>
+                <p class="fieldDescription" id="avDiagnosticsNote">For bug reports: versions, setup and compatibility, counts, task states and the kinds of recent errors, as plain text. Names, emails, titles, addresses, paths and tokens are removed where recognised; read it before posting. Building it checks the AudioVault connection, which takes a few seconds.</p>
+                <button is="emby-button" type="button" id="avDiagnostics" class="raised button-alt block" aria-describedby="avDiagnosticsNote"><span>Copy diagnostic report</span></button>
+                <div id="avDiagnosticsFallback" hidden style="display:none">
+                    <label for="avDiagnosticsText">Diagnostic report</label>
+                    <textarea id="avDiagnosticsText" readonly rows="12" style="width:100%;box-sizing:border-box;font-family:monospace" aria-describedby="avDiagnosticsFallbackNote"></textarea>
+                    <p class="fieldDescription" id="avDiagnosticsFallbackNote">This browser didn't allow copying automatically. The report is selected; copy it with Ctrl+C, or Command+C on a Mac.</p>
+                </div>
+            </section>
+
+            <section aria-labelledby="avAccountsHeading">
+                <h2 id="avAccountsHeading">AudioVault accounts</h2>
+                <p class="fieldDescription">Each Jellyfin user downloads with their own AudioVault account. Users can add their own at <a id="avAccountPage" href="../AudioVault/Account" target="_blank">the AudioVault account page</a> (open it in a browser where they are signed in). Only each user can see or change their own login. Logins are checked with AudioVault when saved. Only an encrypted AudioVault sign-in token is kept, not the password (unless AudioVault provides no token).</p>
+            </section>
+
+            <form id="AudioVaultConfigForm">
+                <h2>Connection</h2>
+                <div class="inputContainer">
+                    <input is="emby-input" type="url" id="FlareSolverrUrl" label="FlareSolverr URL (optional)" />
+                    <div class="fieldDescription">Only used if Cloudflare blocks the server, for example http://flaresolverr:8191</div>
+                </div>
+
+                <h2>Playback</h2>
+                <div class="inputContainer">
+                    <input is="emby-input" type="url" id="PublicServerUrl" label="Public server URL (leave empty to detect automatically)" aria-describedby="avPublicUrlDescription avPublicUrlInUse avPublicUrlAdvice" />
+                    <div class="fieldDescription" id="avPublicUrlDescription">The address every device and this server use to reach Jellyfin, written into the library files, for example https://jellyfin.example.com.</div>
+                    <div class="fieldDescription" id="avPublicUrlInUse"></div>
+                    <div class="fieldDescription" id="avPublicUrlAdvice"></div>
+                </div>
+                <div>
+                    <button is="emby-button" type="button" id="avReachTest" class="raised button-alt block" aria-describedby="avReachNote"><span>Test the playback address from this device</span></button>
+                    <p class="fieldDescription" id="avReachNote">Shows whether this device can reach this server at the playback address; other devices may differ.</p>
+                    <p id="avReachResult"></p>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="DailyDownloadLimit" label="Daily download limit per account (1 to 25)" min="1" max="25" />
+                    <div class="fieldDescription">AudioVault bans accounts that download more than 25 titles in a day. A season counts as one download. The plugin counts only the downloads made through this Jellyfin server: downloads in a browser or another app with the same AudioVault account are not seen, so if users also download elsewhere, set this well below 25.</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="AudioBitrateKbps" label="Audio bitrate in kbps" min="32" max="256" />
+                </div>
+
+                <h2>Web client</h2>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="ShowAccountMenuLink" aria-describedby="ShowAccountMenuLinkDescription" />
+                        <span>Show an "AudioVault account" link in the Jellyfin side menu</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription" id="ShowAccountMenuLinkDescription">Lets every user open the AudioVault account page from the web client's menu. Users see the change after reloading the web client.</div>
+                </div>
+
+                <h2>Users</h2>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="SignOutDeletedUsers" aria-describedby="SignOutDeletedUsersDescription" />
+                        <span>Sign out of AudioVault when a Jellyfin user is deleted</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription" id="SignOutDeletedUsersDescription">A deleted user's stored AudioVault login is always removed from this server. With this on, the plugin also signs that login out at AudioVault, which ends "remember me" on every device using that AudioVault account, including other Jellyfin users who share it.</div>
+                </div>
+
+                <h2>Versions and languages</h2>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="PreferredLanguage" label="Preferred description language" />
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="IncludeOtherLanguages" aria-describedby="IncludeOtherLanguagesDescription" />
+                        <span>Include titles described in other languages</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription" id="IncludeOtherLanguagesDescription">Adds titles whose audio description is in another language, and other-language versions of titles that also have one in your preferred language. Your preferred language always comes first.</div>
+                </div>
+                <div class="checkboxContainer">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="IncludeTts" />
+                        <span>Include text-to-speech descriptions</span>
+                    </label>
+                </div>
+
+                <h2>Folders</h2>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="MoviesPath" label="Movies library folder (leave empty for default)" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="ShowsPath" label="Shows library folder (leave empty for default)" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="CachePath" label="Converted media cache folder (leave empty for default)" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="MaxCacheGb" label="Cache size limit in GB (0 for unlimited)" min="0" />
+                    <div class="fieldDescription">Titles removed from the cache have to be downloaded again.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="EvictWhenLowOnSpace" aria-describedby="EvictWhenLowOnSpaceDescription" />
+                        <span>Free space automatically when the disk is nearly full</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription" id="EvictWhenLowOnSpaceDescription">Removes the least recently played titles that nobody is playing, so new titles can still be prepared. Removed titles have to be downloaded again. When off, new plays are refused until you free space yourself.</div>
+                </div>
+
+                <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            const pluginId = '4a6f2c1e-7b0d-4c5e-9a43-2f8b6d1e0a57';
+            const page = document.querySelector('#AudioVaultConfigPage');
+            const textFields = ['FlareSolverrUrl', 'PublicServerUrl', 'PreferredLanguage', 'MoviesPath', 'ShowsPath', 'CachePath'];
+            const numberFields = ['DailyDownloadLimit', 'AudioBitrateKbps', 'MaxCacheGb'];
+            const boolFields = ['IncludeOtherLanguages', 'IncludeTts', 'ShowAccountMenuLink', 'SignOutDeletedUsers', 'EvictWhenLowOnSpace'];
+            const status = page.querySelector('#avStatus');
+
+            function api(path, method) {
+                return ApiClient.ajax({ type: method || 'GET', url: ApiClient.getUrl('AudioVault/Admin/' + path), dataType: method ? undefined : 'json' });
+            }
+
+            function formatBytes(b) {
+                return b > 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : (b / 1048576).toFixed(0) + ' MB';
+            }
+
+            const statusLines = page.querySelector('#avStatusLines');
+            const pollMs = 5000;
+            let pollTimer = null;
+            let pageVisible = false;
+            let previous = null;
+
+            function announce(messages) {
+                if (!messages.length) {
+                    return;
+                }
+                // Clear first so a repeated message is read again.
+                status.textContent = '';
+                setTimeout(function () { status.textContent = messages.join(' '); }, 100);
+            }
+
+            // Reuses existing list items so screen reader users don't lose their place while the list updates.
+            function renderList(list, items, key, create, update) {
+                const existing = {};
+                Array.prototype.slice.call(list.children).forEach(function (li) {
+                    if (existing[li.dataset.key]) {
+                        li.remove();
+                    } else {
+                        existing[li.dataset.key] = li;
+                    }
+                });
+                items.forEach(function (item, i) {
+                    const k = key(item);
+                    let li = existing[k];
+                    delete existing[k];
+                    if (!li) {
+                        li = create(item);
+                        li.dataset.key = k;
+                    }
+                    if (list.children[i] !== li) {
+                        list.insertBefore(li, list.children[i] || null);
+                    }
+                    update(li, item);
+                });
+                Object.keys(existing).forEach(function (k) { existing[k].remove(); });
+            }
+
+            // Status paragraphs keep their nodes too: only a paragraph whose text changed is touched.
+            function renderLines(lines) {
+                renderList(statusLines, lines, function (l) { return l.key; },
+                    function () { return document.createElement('p'); },
+                    function (p, l) { setText(p, l.text); });
+            }
+
+            function progressItem(label) {
+                const li = document.createElement('li');
+                li.style.marginBottom = '.5em';
+                const text = document.createElement('span');
+                text.className = 'avText';
+                li.appendChild(text);
+                const bar = document.createElement('progress');
+                bar.max = 100;
+                bar.setAttribute('aria-label', label);
+                bar.style.width = '100%';
+                li.appendChild(bar);
+                return li;
+            }
+
+            function setText(el, text) {
+                if (el.textContent !== text) {
+                    el.textContent = text;
+                }
+            }
+
+            function setProgress(li, text, percent, show) {
+                setText(li.querySelector('.avText'), text);
+                const bar = li.querySelector('progress');
+                bar.hidden = !show;
+                bar.style.display = show ? 'block' : 'none';
+                if (percent === null || percent === undefined) {
+                    bar.removeAttribute('value');
+                } else {
+                    bar.value = percent;
+                }
+            }
+
+            function taskResultText(t) {
+                if (!t.LastStatus) {
+                    return 'never run';
+                }
+                const when = t.LastEnd ? ' at ' + new Date(t.LastEnd).toLocaleString() : '';
+                switch (t.LastStatus) {
+                    case 'Completed': return 'last run completed' + when;
+                    case 'Failed': return 'last run failed' + when + (t.LastError ? ': ' + t.LastError : '');
+                    case 'Cancelled': return 'last run was cancelled' + when;
+                    default: return 'last run ' + t.LastStatus.toLowerCase() + when;
+                }
+            }
+
+            function renderTasks(tasks) {
+                renderList(page.querySelector('#avTasks'), tasks, function (t) { return t.Id; },
+                    function (t) { return progressItem(t.Name + ' progress'); },
+                    function (li, t) {
+                        if (t.State === 'Running') {
+                            const pct = t.Progress === null || t.Progress === undefined ? null : Math.round(t.Progress);
+                            setProgress(li, t.Name + ': running' + (pct === null ? '.' : ', ' + pct + '%.'), pct, true);
+                        } else if (t.State === 'Cancelling') {
+                            setProgress(li, t.Name + ': cancelling.', null, false);
+                        } else {
+                            setProgress(li, t.Name + ': idle, ' + taskResultText(t) + '.', null, false);
+                        }
+                    });
+            }
+
+            function renderJobs(jobs) {
+                const list = page.querySelector('#avJobs');
+                if (!jobs.length) {
+                    renderList(list, [{ Title: '' }], function () { return 'none'; },
+                        function () { const li = document.createElement('li'); li.textContent = 'Nothing is downloading or converting.'; return li; },
+                        function () {});
+                    return;
+                }
+                renderList(list, jobs, function (j) { return 'job:' + j.Id; },
+                    function (j) { return progressItem(j.Title + ' download progress'); },
+                    function (li, j) {
+                        if (j.Phase === 'Downloading') {
+                            const mb = formatBytes(j.BytesReceived);
+                            const pct = j.Percent === null || j.Percent === undefined ? null : Math.floor(j.Percent);
+                            const text = j.TotalBytes
+                                ? j.Title + ': downloading, ' + mb + ' of ' + formatBytes(j.TotalBytes) + ' (' + pct + '%).'
+                                : j.Title + ': downloading, ' + mb + ' received.';
+                            setProgress(li, text, pct, true);
+                        } else if (j.Phase === 'Waiting') {
+                            setProgress(li, j.Title + ': waiting for a free download slot.', null, false);
+                        } else {
+                            setProgress(li, j.Title + ': converting.', null, false);
+                        }
+                    });
+            }
+
+            const stateText = { Done: 'done', InProgress: 'in progress', Waiting: 'waiting', Problem: 'problem' };
+            // Collapsed only if setup was already complete when the page opened, or by the toggle; null until the
+            // page's first status. While the page is open it never collapses by itself.
+            let setupCollapsed = null;
+            let lastSetup = null;
+            // Shown while the status can't work out the setup steps, so a failed poll doesn't take away the list
+            // (and the focus in it).
+            let knownSetup = null;
+            let setupStale = false;
+
+            // Times come as "{at}" so they show in this browser's own time zone.
+            function withTime(text, at) {
+                return at ? text.split('{at}').join(new Date(at).toLocaleString()) : text;
+            }
+
+            function show(el, visible) {
+                el.hidden = !visible;
+                el.style.display = visible ? '' : 'none';
+            }
+
+            function focusControl(selector) {
+                const el = page.querySelector(selector);
+                el.scrollIntoView({ block: 'center' });
+                el.focus();
+            }
+
+            // Each step's next action reuses a control further down the page.
+            const setupActions = {
+                PublicUrl: { label: 'Go to the Public server URL field', run: function () { focusControl('#PublicServerUrl'); } },
+                LibraryOptions: { label: 'Go to the options for the new libraries', run: function () { expandCreate(); focusControl('#avLibOmdb'); } },
+                SyncRecent: { label: 'Sync recent uploads now', run: function () { page.querySelector('#avSyncRecent').click(); } },
+                SyncFull: { label: 'Run full catalog sync now', run: function () { page.querySelector('#avSyncFull').click(); } },
+                AccountPage: { label: 'Open the AudioVault account page (opens in a new tab)', link: true }
+            };
+
+            function setupItem() {
+                const li = document.createElement('li');
+                li.style.marginBottom = '1em';
+                const line = document.createElement('p');
+                line.className = 'avStepLine';
+                line.tabIndex = -1;
+                line.style.margin = '0';
+                const title = document.createElement('strong');
+                title.className = 'avStepTitle';
+                line.appendChild(title);
+                const state = document.createElement('span');
+                state.className = 'avStepState';
+                line.appendChild(state);
+                li.appendChild(line);
+                const detail = document.createElement('p');
+                detail.className = 'avStepDetail';
+                detail.style.margin = '.25em 0';
+                li.appendChild(detail);
+                const slot = document.createElement('div');
+                slot.className = 'avStepAction';
+                li.appendChild(slot);
+                return li;
+            }
+
+            function updateSetupItem(li, step) {
+                li.dataset.state = step.State;
+                setText(li.querySelector('.avStepTitle'), step.Title);
+                setText(li.querySelector('.avStepState'), ': ' + (stateText[step.State] || step.State) + '.');
+                setText(li.querySelector('.avStepDetail'), withTime(step.Detail, step.At));
+                const slot = li.querySelector('.avStepAction');
+                if (slot.dataset.action === step.Action) {
+                    return;
+                }
+                const hadFocus = slot.contains(document.activeElement);
+                slot.dataset.action = step.Action;
+                slot.textContent = '';
+                const action = setupActions[step.Action];
+                if (action) {
+                    let el;
+                    if (action.link) {
+                        el = document.createElement('a');
+                        el.href = page.querySelector('#avAccountPage').href;
+                        el.target = '_blank';
+                        el.rel = 'noopener';
+                    } else {
+                        el = document.createElement('button');
+                        el.type = 'button';
+                        el.className = 'raised button-alt';
+                        el.addEventListener('click', action.run);
+                    }
+                    el.textContent = action.label;
+                    slot.appendChild(el);
+                }
+                // The action went away (the step moved on): keep the place in the list.
+                if (hadFocus) {
+                    li.querySelector('.avStepLine').focus();
+                }
+            }
+
+            // Collapses to one line when every step was already done as the page opened; the toggle shows them again.
+            // Setup becoming complete during the visit keeps the list (the change is announced); setup becoming
+            // incomplete shows it again. Returns what to announce when the steps stop or start updating again.
+            function renderSetup(setup) {
+                const list = page.querySelector('#avSetupSteps');
+                const summary = page.querySelector('#avSetupSummary');
+                const toggle = page.querySelector('#avSetupToggle');
+                const error = page.querySelector('#avSetupError');
+                const summaryHadFocus = summary.contains(document.activeElement);
+                lastSetup = setup;
+                const wasStale = setupStale;
+                if (setup) {
+                    knownSetup = setup;
+                }
+                setupStale = !setup && !!knownSetup;
+                setText(error, setupStale ? 'Could not update the setup steps right now. These are the last known steps.' : '');
+                show(error, setupStale);
+                const message = setupStale && !wasStale ? 'Could not update the setup steps right now.'
+                    : wasStale && setup ? 'Setup steps are up to date again.' : '';
+                if (!knownSetup) {
+                    renderList(list, [{ Key: 'error' }], function (st) { return st.Key; },
+                        function () { const li = document.createElement('li'); li.textContent = 'Could not work out the setup steps right now.'; return li; },
+                        function () {});
+                    if (setupCollapsed === null) {
+                        setupCollapsed = false;
+                    }
+                    show(summary, false);
+                    show(list, true);
+                    if (summaryHadFocus) {
+                        page.querySelector('#avSetupHeading').focus();
+                    }
+                    return message;
+                }
+                setup = knownSetup;
+                if (setupCollapsed === null) {
+                    setupCollapsed = !!setup.Complete;
+                }
+                if (!setup.Complete) {
+                    setupCollapsed = false;
+                }
+                renderList(list, setup.Steps, function (st) { return st.Key; }, setupItem, updateSetupItem);
+                const collapsed = setupCollapsed;
+                setText(page.querySelector('#avSetupSummaryText'), 'Setup complete: all ' + setup.Steps.length + ' steps are done.'
+                    + (setup.Limited ? ' Some features are limited on this Jellyfin version; see the Jellyfin compatibility step.' : ''));
+                setText(toggle.querySelector('span'), collapsed ? 'Show setup steps' : 'Hide setup steps');
+                toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                if (collapsed && list.contains(document.activeElement)) {
+                    toggle.focus();
+                }
+                show(list, !collapsed);
+                show(summary, setup.Complete);
+                // The toggle had focus and has gone with the summary: go to the first step that needs attention.
+                if (summaryHadFocus && !setup.Complete) {
+                    const step = Array.prototype.find.call(list.children, function (li) { return li.dataset.state && li.dataset.state !== 'Done'; });
+                    (step ? step.querySelector('.avStepLine') : page.querySelector('#avSetupHeading')).focus();
+                }
+                return message;
+            }
+
+            // Once both libraries exist, their options and the Create button sit behind a disclosure.
+            let createExpanded = false;
+            let librariesCreated = false;
+
+            function renderCreate(created) {
+                librariesCreated = !!created;
+                const block = page.querySelector('#avCreate');
+                const toggle = page.querySelector('#avCreateToggle');
+                const collapsed = librariesCreated && !createExpanded;
+                toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                show(page.querySelector('#avCreateAgain'), librariesCreated);
+                if (collapsed && block.contains(document.activeElement)) {
+                    toggle.focus();
+                }
+                show(block, !collapsed);
+            }
+
+            function expandCreate() {
+                createExpanded = true;
+                renderCreate(librariesCreated);
+            }
+
+            page.querySelector('#avCreateToggle').addEventListener('click', function () {
+                createExpanded = !createExpanded;
+                renderCreate(librariesCreated);
+            });
+
+            page.querySelector('#avSetupToggle').addEventListener('click', function () {
+                setupCollapsed = !setupCollapsed;
+                renderSetup(lastSetup);
+            });
+
+            // Jellyfin's themes set their own backgrounds (dark by default, light ones too) and don't follow the
+            // system's colour scheme, so the warning colour is picked against the background actually shown: dark red
+            // (7.3:1 on white) or light red (8.3:1 on #101010), whichever contrasts more. If neither reaches 4.5:1,
+            // the warning keeps the theme's text colour.
+            function warningColour() {
+                function rgb(css) {
+                    const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(css || '');
+                    return m && (m[4] === undefined || Number(m[4]) > 0) ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+                }
+                function luminance(c) {
+                    const l = c.map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+                    return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
+                }
+                function contrast(a, b) {
+                    const x = luminance(a), y = luminance(b);
+                    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+                }
+                let background = null;
+                for (let el = page; el && !background; el = el.parentElement) {
+                    background = rgb(getComputedStyle(el).backgroundColor);
+                }
+                background = background || rgb(getComputedStyle(document.body).backgroundColor) || [255, 255, 255];
+                const best = [[176, 0, 32], [255, 138, 128]]
+                    .map(function (c) { return { c: c, ratio: contrast(c, background) }; })
+                    .sort(function (a, b) { return b.ratio - a.ratio; })[0];
+                if (best.ratio >= 4.5) {
+                    page.style.setProperty('--av-warning', 'rgb(' + best.c.join(',') + ')');
+                } else {
+                    page.style.removeProperty('--av-warning');
+                }
+            }
+
+            // Items Jellyfin hasn't fetched details for, or null while they haven't been counted.
+            function waitingTotal(x) {
+                if (!x || x.MoviesWaiting === null || x.MoviesWaiting === undefined) {
+                    return null;
+                }
+                return (x.MoviesWaiting || 0) + (x.EpisodesWaiting || 0) + (x.ShowFoldersWaiting || 0);
+            }
+
+            // What changed since the last poll that is worth announcing. Nothing on the first load.
+            function changes(prev, s) {
+                if (!prev) {
+                    return [];
+                }
+                const messages = [];
+                const before = {};
+                prev.Tasks.forEach(function (t) { before[t.Id] = t; });
+                s.Tasks.forEach(function (t) {
+                    const p = before[t.Id];
+                    if (!p) {
+                        return;
+                    }
+                    if (t.LastEnd && t.LastEnd !== p.LastEnd) {
+                        const result = t.LastStatus === 'Completed' ? 'finished.'
+                            : t.LastStatus === 'Failed' ? 'failed' + (t.LastError ? ': ' + t.LastError : '.')
+                            : t.LastStatus === 'Cancelled' ? 'was cancelled.' : 'stopped: ' + t.LastStatus + '.';
+                        messages.push(t.Name + ' ' + result);
+                    } else if (t.State === 'Running' && p.State !== 'Running') {
+                        messages.push(t.Name + ' started.');
+                    }
+                });
+                const lastSeen = prev.RecentOutcomes.reduce(function (m, o) { return Math.max(m, o.Sequence); }, 0);
+                s.RecentOutcomes.filter(function (o) { return o.Sequence > lastSeen; }).forEach(function (o) {
+                    if (o.Kind === 'MovieReady') {
+                        messages.push(o.Title + ' is downloaded and ready to play.');
+                    } else if (o.Kind === 'SeasonDownloaded') {
+                        messages.push(o.Title + ' is downloaded. Its episodes are being converted.');
+                    } else {
+                        messages.push(o.Title + ' failed' + (o.Error ? ': ' + o.Error : '.'));
+                    }
+                });
+                // A setup step that changed state is announced once, not again by the lines below.
+                const stepChanged = {};
+                if (prev.Setup && s.Setup) {
+                    const before = {};
+                    prev.Setup.Steps.forEach(function (st) { before[st.Key] = st.State; });
+                    s.Setup.Steps.forEach(function (st) {
+                        if (before[st.Key] && before[st.Key] !== st.State) {
+                            stepChanged[st.Key] = true;
+                            messages.push('Setup step ' + st.Title + ': ' + (stateText[st.State] || st.State) + '.');
+                        }
+                    });
+                    if (s.Setup.Complete && !prev.Setup.Complete) {
+                        messages.push('Setup complete.');
+                    }
+                }
+                if (!stepChanged.episodes && prev.EpisodeLists && prev.EpisodeLists.Waiting && s.EpisodeLists && s.EpisodeLists.Waiting === 0) {
+                    messages.push('Every AudioVault season now has its episode list.');
+                }
+                const waitingBefore = waitingTotal(prev.Indexing);
+                if (!stepChanged.matching && waitingBefore && waitingTotal(s.Indexing) === 0) {
+                    messages.push('All AudioVault titles are now searchable in Jellyfin.');
+                }
+                return messages;
+            }
+
+            function showStatus(checkSource, refreshed) {
+                if (checkSource) {
+                    status.textContent = 'Checking AudioVault…';
+                }
+                return api('Status?checkSource=' + !!checkSource).then(function (s) {
+                    const lines = [];
+                    function line(key, text) { lines.push({ key: key, text: text }); }
+                    const checked = s.SourceOk !== null && s.SourceOk !== undefined;
+                    if (checked) {
+                        line('source', (s.SourceOk ? 'AudioVault: ' : 'AudioVault problem: ') + s.SourceMessage);
+                    }
+                    line('quota', 'Downloads in the last 24 hours, all accounts together: ' + s.DownloadsLast24hAllAccounts + '. Limit per account: ' + s.DownloadLimit + '.');
+                    if (s.DownloadsBlockedUntil) {
+                        line('blocked', 'Downloads are paused until ' + new Date(s.DownloadsBlockedUntil).toLocaleString() + ' because the download history file was damaged, so recent downloads could not be counted.');
+                    }
+                    line('cache', 'Cache: ' + formatBytes(s.CacheBytes) + (s.ActiveJobs.length ? ', ' + s.ActiveJobs.length + ' conversions running.' : '.'));
+                    line('folders', 'Movies folder: ' + s.MoviesPath + '. Shows folder: ' + s.ShowsPath + '.');
+                    setText(page.querySelector('#avPublicUrlInUse'), 'In use: ' + s.PublicServerUrl + ' (' + s.PublicServerUrlSource + ').');
+                    setText(page.querySelector('#avPublicUrlAdvice'), s.PublicUrlAdvice ? 'Note: ' + s.PublicUrlAdvice : '');
+                    const unreached = (s.Unreached || []).map(function (u) { return withTime(u.Text, u.LastAt); });
+                    const warnings = [s.PublicUrlProblem, s.DetectionProblem, s.PublicUrlSelfCheck].concat(unreached).filter(Boolean);
+                    const warning = warnings.length ? 'Playback warning: ' + warnings.join(' ') : '';
+                    const warningEl = page.querySelector('#avUrlWarning');
+                    setText(warningEl, warning);
+                    const others = [s.PluginProblem, s.CatalogProblem, s.FolderProblem, s.LibraryProblem, s.CacheProblem, s.AccountsProblem, s.QuotaProblem, s.ConversionProblem, s.RewriteProblem].filter(Boolean).join(' ');
+                    const othersEl = page.querySelector('#avWarnings');
+                    const othersChanged = othersEl.textContent !== others;
+                    setText(othersEl, others);
+                    if (!checked && previous && previous.sourceLine) {
+                        // Keep the last connection check result between polls.
+                        lines.unshift({ key: 'source', text: previous.sourceLine });
+                    }
+                    renderLines(lines);
+                    const setupMessage = renderSetup(s.Setup);
+                    renderTasks(s.Tasks);
+                    renderCreate(s.LibrariesCreated);
+                    renderJobs(s.Jobs);
+
+                    const messages = changes(previous && previous.data, s);
+                    if (setupMessage) {
+                        messages.push(setupMessage);
+                    }
+                    if (othersChanged && others && previous) {
+                        messages.push('Warning: ' + others);
+                    }
+                    if (checked) {
+                        messages.unshift(lines[0].text);
+                    } else if (refreshed) {
+                        messages.unshift('Status refreshed.');
+                    }
+                    announce(messages);
+                    // Setup step changes during a failed poll are announced when it recovers.
+                    const seen = s.Setup || !knownSetup ? s : Object.assign({}, s, { Setup: knownSetup });
+                    previous = { data: seen, sourceLine: checked ? lines[0].text : previous && previous.sourceLine };
+                }).catch(function () {
+                    if (checkSource || refreshed) {
+                        status.textContent = 'Could not load status.';
+                    } else {
+                        renderLines([{ key: 'error', text: 'Could not load status.' }]);
+                    }
+                    // Say why if part of the plugin failed to start; that check needs nothing that can fail.
+                    return api('Health').then(function (h) {
+                        const othersEl = page.querySelector('#avWarnings');
+                        const problem = h && h.PluginProblem ? h.PluginProblem : '';
+                        if (othersEl.textContent !== problem) {
+                            setText(othersEl, problem);
+                            if (problem) {
+                                announce(['Warning: ' + problem]);
+                            }
+                        }
+                    }).catch(function () { });
+                });
+            }
+
+            function schedulePoll() {
+                clearTimeout(pollTimer);
+                pollTimer = null;
+                if (pageVisible && !document.hidden) {
+                    pollTimer = setTimeout(function () { showStatus(false).then(schedulePoll); }, pollMs);
+                }
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                if (!pageVisible) {
+                    return;
+                }
+                if (document.hidden) {
+                    clearTimeout(pollTimer);
+                    pollTimer = null;
+                } else {
+                    showStatus(false).then(schedulePoll);
+                }
+            });
+
+            page.addEventListener('pagehide', function () {
+                pageVisible = false;
+                clearTimeout(pollTimer);
+                pollTimer = null;
+            });
+
+            // The address this page was opened with, including Jellyfin's base URL.
+            function openedAddress() {
+                let address = '';
+                try {
+                    address = ApiClient.serverAddress() || '';
+                } catch (e) {
+                    address = '';
+                }
+                if (!/^https?:\/\//i.test(address)) {
+                    const path = window.location.pathname;
+                    const web = path.toLowerCase().indexOf('/web/');
+                    address = window.location.origin + (web >= 0 ? path.substring(0, web) : '');
+                }
+                return address.replace(/\/+$/, '');
+            }
+
+            // A cross-origin image can't be read, so the server says whether the ping with this one-time nonce arrived.
+            let reachRunning = false;
+            function testReach(speak) {
+                if (reachRunning) {
+                    return;
+                }
+                reachRunning = true;
+                const result = page.querySelector('#avReachResult');
+                if (speak) {
+                    announce(['Testing the playback address from this device…']);
+                }
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('AudioVault/Admin/ReachProbe'), dataType: 'json' }).then(function (probe) {
+                    const mixed = window.location.protocol === 'https:' && /^http:/i.test(probe.PingUrl);
+                    return new Promise(function (resolve) {
+                        const img = new Image();
+                        let timer = null;
+                        function finish(loaded) {
+                            clearTimeout(timer);
+                            img.onload = img.onerror = null;
+                            resolve({ nonce: probe.Nonce, loaded: loaded, mixed: mixed });
+                        }
+                        timer = setTimeout(function () { finish(false); }, 10000);
+                        img.onload = function () { finish(true); };
+                        img.onerror = function () { finish(false); };
+                        img.src = probe.PingUrl;
+                    });
+                }).then(function (r) {
+                    return ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('AudioVault/Admin/ReachProbe/' + r.nonce, { loaded: r.loaded, mixed: r.mixed }),
+                        dataType: 'json'
+                    });
+                }).then(function (res) {
+                    setText(result, res.Text);
+                    if (speak) {
+                        announce([res.Text]);
+                    }
+                }).catch(function () {
+                    const text = 'Could not test the playback address.';
+                    setText(result, text);
+                    if (speak) {
+                        announce([text]);
+                    }
+                }).finally(function () { reachRunning = false; });
+            }
+
+            // The server keeps it only if other devices could use it and the server can reach it.
+            function reportAddress() {
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('AudioVault/Admin/DetectedAddress'),
+                    data: JSON.stringify({ Url: openedAddress() }),
+                    contentType: 'application/json',
+                    dataType: 'json'
+                }).then(function (r) {
+                    if (r.Changed) {
+                        setText(page.querySelector('#avPublicUrlInUse'), 'In use: ' + r.PublicServerUrl + ' (' + r.PublicServerUrlSource + ').');
+                        announce(['Playback links now use ' + r.PublicServerUrl + '. The library files are being updated.']);
+                    }
+                }).catch(function () {});
+            }
+
+            function fillForm(config) {
+                textFields.forEach(function (f) { page.querySelector('#' + f).value = config[f] || ''; });
+                numberFields.forEach(function (f) { page.querySelector('#' + f).value = config[f]; });
+                boolFields.forEach(function (f) { page.querySelector('#' + f).checked = !!config[f]; });
+            }
+
+            page.addEventListener('pageshow', function () {
+                reportAddress();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(fillForm).catch(function () {
+                    announce(['Could not load the settings. Reload the page to try again.']);
+                }).finally(function () { Dashboard.hideLoadingMsg(); });
+                pageVisible = true;
+                previous = null;
+                setupCollapsed = null;
+                warningColour();
+                showStatus(false).then(schedulePoll);
+                testReach(false);
+            });
+
+            page.querySelector('#AudioVaultConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    textFields.forEach(function (f) { config[f] = page.querySelector('#' + f).value.trim(); });
+                    numberFields.forEach(function (f) { config[f] = parseInt(page.querySelector('#' + f).value, 10) || 0; });
+                    boolFields.forEach(function (f) { config[f] = page.querySelector('#' + f).checked; });
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                    // Unusable folders are not saved; show what is in effect.
+                    return ApiClient.getPluginConfiguration(pluginId).then(fillForm).then(function () {
+                        return api('Status?checkSource=false');
+                    }).then(function (s) {
+                        announce([s.FolderProblem ? 'Settings saved, except: ' + s.FolderProblem : 'Settings saved.']);
+                        showStatus(false);
+                        testReach(false);
+                    });
+                }).catch(function () {
+                    announce(['Saving the settings failed. Check the values and try again.']);
+                }).finally(function () { Dashboard.hideLoadingMsg(); });
+                return false;
+            });
+
+            // Starts the copy inside the click, so browsers that allow copying only right after a click (Safari) still
+            // allow it once the report arrives. Where the clipboard can't be used (plain http) the report is shown instead.
+            function copyWhenReady(text) {
+                if (!window.isSecureContext || !navigator.clipboard) {
+                    return Promise.reject(new Error('no clipboard'));
+                }
+                const later = function () { return text.then(function (t) { return navigator.clipboard.writeText(t); }); };
+                if (window.ClipboardItem && navigator.clipboard.write) {
+                    try {
+                        const blob = text.then(function (t) { return new Blob([t], { type: 'text/plain' }); });
+                        return navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })]).catch(later);
+                    } catch (e) {
+                        return later();
+                    }
+                }
+                return later();
+            }
+
+            let diagnosticsRunning = false;
+            page.querySelector('#avDiagnostics').addEventListener('click', function () {
+                if (diagnosticsRunning) {
+                    return;
+                }
+                diagnosticsRunning = true;
+                const fallback = page.querySelector('#avDiagnosticsFallback');
+                const area = page.querySelector('#avDiagnosticsText');
+                announce(['Building the diagnostic report…']);
+                const text = api('Diagnostics?checkSource=true').then(function (r) {
+                    area.value = r.Text;
+                    return r.Text;
+                });
+                copyWhenReady(text).then(function () {
+                    show(fallback, false);
+                    announce(['Diagnostic report copied. Paste it into your bug report.']);
+                }, function () {
+                    return text.then(function () {
+                        show(fallback, true);
+                        area.focus();
+                        area.select();
+                        announce(['The report could not be copied automatically. It is selected in the Diagnostic report text box; copy it with Ctrl+C, or Command+C on a Mac.']);
+                    });
+                }).catch(function () {
+                    announce(['Could not build the diagnostic report.']);
+                }).finally(function () { diagnosticsRunning = false; });
+            });
+
+            page.querySelector('#avRefresh').addEventListener('click', function () { showStatus(false, true); });
+            page.querySelector('#avReachTest').addEventListener('click', function () { testReach(true); });
+            page.querySelector('#avCheck').addEventListener('click', function () { showStatus(true); });
+            page.querySelector('#avSyncRecent').addEventListener('click', function () {
+                api('Sync?full=false', 'POST').then(function () { status.textContent = 'Recent uploads sync started. On the first run this reads the whole catalog, which takes about ten minutes.'; })
+                    .catch(function () { status.textContent = 'Could not start the sync.'; });
+            });
+            page.querySelector('#avSyncFull').addEventListener('click', function () {
+                api('Sync?full=true', 'POST').then(function () { status.textContent = 'Full catalog sync started. This takes about ten minutes.'; })
+                    .catch(function () { status.textContent = 'Could not start the sync.'; });
+            });
+            page.querySelector('#avCreateLibraries').addEventListener('click', function () {
+                const choices = {};
+                [['UseOmdb', 'avLibOmdb'], ['Posters', 'avLibPosters'], ['Backdrops', 'avLibBackdrops'], ['ExtraArtwork', 'avLibExtraArtwork'],
+                    ['SeasonImages', 'avLibSeasonImages'], ['EpisodeImages', 'avLibEpisodeImages']].forEach(function (c) {
+                    choices[c[0]] = page.querySelector('#' + c[1]).checked;
+                });
+                status.textContent = 'Creating libraries…';
+                ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl('AudioVault/Admin/CreateLibraries'),
+                    data: JSON.stringify(choices),
+                    contentType: 'application/json',
+                    dataType: 'json'
+                }).then(function (r) {
+                    status.textContent = r.Created.length ? 'Created: ' + r.Created.join(', ') + '.' : 'The libraries already exist.';
+                }).catch(function () { status.textContent = 'Creating libraries failed.'; });
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

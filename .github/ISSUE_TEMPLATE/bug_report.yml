@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in the AudioVault plugin doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If nothing syncs or AudioVault's pages seem to have changed, use the "AudioVault changed or nothing syncs" form instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Include any message the player or the settings page showed.
+      placeholder: |
+        I pressed play on a movie in the Jellyfin web app. I expected it to start after a short wait. Instead a dialog said ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Optional. The steps that make it happen again, one per line.
+  - type: input
+    id: client
+    attributes:
+      label: Jellyfin app and device
+      description: Optional. For example "Jellyfin web in Firefox on Windows" or "Jellyfin for Android TV".
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic report
+      description: |
+        In Jellyfin, open Dashboard, Plugins, AudioVault, and press "Copy diagnostic report" (under the Diagnostic report heading). Paste it here. It leaves out names, emails, titles, addresses, folders and tokens; read it before posting if you want to be sure.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Server log lines
+      description: Optional. Lines mentioning AudioVault from the Jellyfin log (Dashboard, Logs). Remove names, emails and addresses first.
+      render: text

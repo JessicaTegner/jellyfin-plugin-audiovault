@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your AudioVault account</title>
+    <style>
+        /* Text contrast is at least 4.5:1 in both themes (accent on background, and button text on accent). */
+        :root { --bg: #fff; --fg: #111; --muted: #555; --accent: #00699a; --on-accent: #fff; --field: #f4f4f4; --error: #b00020; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #101010; --fg: #eee; --muted: #aaa; --accent: #4fc3f7; --on-accent: #111; --field: #222; --error: #ff6b7f; }
+        }
+        body { background: var(--bg); color: var(--fg); font: 1.1rem/1.5 system-ui, sans-serif; margin: 0; padding: 1rem; }
+        main, nav { max-width: 32rem; margin: 0 auto; }
+        nav { margin-bottom: 1rem; }
+        a { color: var(--accent); }
+        label { display: block; margin-top: 1rem; font-weight: 600; }
+        input { display: block; width: 100%; box-sizing: border-box; padding: .6rem; font: inherit; color: var(--fg);
+                background: var(--field); border: 1px solid var(--muted); border-radius: 4px; }
+        button { margin-top: 1rem; margin-right: .5rem; padding: .6rem 1.2rem; font: inherit; border-radius: 4px;
+                 border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); cursor: pointer; }
+        button:disabled { opacity: .7; cursor: wait; }
+        button.secondary { background: transparent; color: var(--fg); }
+        :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+        .hint { color: var(--muted); }
+        .error { color: var(--error); }
+        [hidden] { display: none; }
+    </style>
+</head>
+<body>
+<nav aria-label="Jellyfin">
+    <a href="../web/">Back to Jellyfin</a>
+</nav>
+<main>
+    <h1>Your AudioVault account</h1>
+    <p class="hint">Jellyfin uses this account to download audio-described titles from AudioVault when you press play. Each account can download up to 25 titles a day. This server only counts the downloads it makes itself: titles you download from AudioVault in a browser or another app are not counted here, so if you also download elsewhere, keep an eye on your total. Your password is used once to sign in; the server then keeps an encrypted sign-in token instead of the password.</p>
+
+    <div id="status" role="status" aria-live="polite">Loading…</div>
+
+    <!-- Why it is needed is said in the status region; this holds the link it points to. -->
+    <div id="signedOut" hidden>
+        <p><a id="signInLink" href="../web/">Open Jellyfin and sign in</a>, then come back to this page.</p>
+    </div>
+
+    <form id="form" hidden novalidate>
+        <label for="email">AudioVault email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required aria-describedby="status">
+
+        <label for="password">AudioVault password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <button type="submit" id="save">Save and check login</button>
+        <button type="button" id="remove" class="secondary" hidden>Clear my stored AudioVault details from this server</button>
+    </form>
+
+    <section aria-labelledby="howHeading">
+        <h2 id="howHeading">How it works</h2>
+        <ul>
+            <li>Add your AudioVault login once.</li>
+            <li>The first time a title is played, this server downloads it from AudioVault. A movie starts within a few seconds while it downloads; a season starts once the whole season has downloaded, usually within a few minutes. After that it starts straight away for everyone on this server.</li>
+            <li>Each download uses one of your account's daily downloads, up to the limit this server sets. Once your login is added, the status above shows how many you have used.</li>
+            <li>Your login is only for you. Other users and admins can't see or change it in Jellyfin's settings, and your password isn't kept unless this page says so.</li>
+        </ul>
+    </section>
+</main>
+<script>
+(function () {
+    const status = document.getElementById('status');
+    const form = document.getElementById('form');
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const remove = document.getElementById('remove');
+    const save = document.getElementById('save');
+    const api = 'Me/Account';
+
+    function normalizeId(id) {
+        return String(id || '').replace(/-/g, '').toLowerCase();
+    }
+
+    // The sign-in this browser holds for this server only, matched by server id; never another server's.
+    function token() {
+        return fetch('../System/Info/Public').then(function (r) {
+            if (!r.ok) { throw new Error(); }
+            return r.json();
+        }).then(function (info) {
+            const id = normalizeId(info.Id);
+            let creds;
+            try {
+                creds = JSON.parse(localStorage.getItem('jellyfin_credentials') || '{}');
+            } catch (e) {
+                return null;
+            }
+            const here = (creds.Servers || []).find(function (s) { return s.AccessToken && id && normalizeId(s.Id) === id; });
+            return here ? here.AccessToken : null;
+        });
+    }
+
+    let accessToken = null;
+
+    function call(method, body) {
+        return fetch(api, {
+            method: method,
+            headers: Object.assign(
+                { 'Authorization': 'MediaBrowser Token="' + accessToken + '"' },
+                body ? { 'Content-Type': 'application/json' } : {}),
+            body: body ? JSON.stringify(body) : undefined
+        });
+    }
+
+    function say(text, isError) {
+        status.textContent = text;
+        status.className = isError ? 'error' : '';
+    }
+
+    let current = { HasAccount: false };
+
+    function stillInUse() {
+        return current.HasAccount
+            ? ' Nothing was changed: your saved AudioVault account ' + current.Email + ' is still in use.'
+            : ' Nothing was saved.';
+    }
+
+    function show(account) {
+        current = account;
+        form.hidden = false;
+        // Details stored but unreadable (the server's key changed, or the entry is damaged) can still be cleared.
+        remove.hidden = !(account.HasAccount || account.HasStoredAccount);
+        if (account.HasAccount) {
+            email.value = account.Email;
+            say('Your AudioVault account ' + account.Email + ' is set up. Downloads in the last 24 hours: '
+                + account.DownloadsLast24h + ' of ' + account.DownloadLimit + '. '
+                + (account.PasswordStored
+                    ? 'AudioVault did not provide a sign-in token, so your password is stored encrypted on the server. '
+                    : 'Your password is not stored; the server keeps an encrypted AudioVault sign-in token instead. ')
+                + 'To change the account, enter a new email and password.');
+        } else if (account.HasStoredAccount) {
+            say('Your stored AudioVault details could not be read. Clear them and add your account again.', true);
+        } else {
+            say('You have not added an AudioVault account yet.');
+        }
+    }
+
+    // Said in the live region, so a screen reader waiting after "Loading…" hears why no form appears; focus then
+    // moves to the link that fixes it.
+    function signedOut(expired) {
+        say((expired ? 'Your Jellyfin sign-in in this browser has expired, so you need to sign in to Jellyfin again first.'
+            : 'You need to sign in to Jellyfin in this browser first.')
+            + ' Use the "Open Jellyfin and sign in" link below, then come back to this page.');
+        document.getElementById('signedOut').hidden = false;
+        document.getElementById('signInLink').focus();
+    }
+
+    token().then(function (t) {
+        accessToken = t;
+        if (!accessToken) {
+            signedOut(false);
+            return null;
+        }
+        return call('GET').then(function (r) {
+            if (r.status === 401) { signedOut(true); return null; }
+            if (!r.ok) { throw new Error(); }
+            return r.json();
+        }).then(function (a) { if (a) { show(a); } });
+    }).catch(function () { say('Could not reach the Jellyfin server. Reload the page to try again.', true); });
+
+    function setBusy(busy) {
+        save.disabled = busy;
+        remove.disabled = busy;
+        form.setAttribute('aria-busy', busy ? 'true' : 'false');
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        email.removeAttribute('aria-invalid');
+        password.removeAttribute('aria-invalid');
+        email.value = email.value.trim();
+        if (!email.value || !email.checkValidity()) {
+            email.setAttribute('aria-invalid', 'true');
+            say((email.value ? email.value + ' is not an email address. Enter the email you use for AudioVault.' : 'Enter your AudioVault email.') + stillInUse(), true);
+            email.focus();
+            return;
+        }
+        if (!password.value) {
+            password.setAttribute('aria-invalid', 'true');
+            say('Enter your AudioVault password.' + stillInUse(), true);
+            password.focus();
+            return;
+        }
+
+        say('Checking your login with AudioVault…');
+        setBusy(true);
+        call('PUT', { Email: email.value.trim(), Password: password.value }).then(function (r) {
+            return r.json().then(function (body) { return { ok: r.ok, body: body }; }, function () { return { ok: false, body: {} }; });
+        }).then(function (res) {
+            password.value = '';
+            if (!res.ok && res.body.errors) {
+                say('Not saved: enter a valid email address and a password.' + stillInUse(), true);
+                email.focus();
+                return;
+            }
+            if (res.ok) {
+                show(res.body);
+                say('Saved. Your AudioVault login works. ' + status.textContent);
+            } else {
+                say('Not saved: ' + (res.body.Message || 'AudioVault did not accept the login.') + stillInUse(), true);
+                password.focus();
+            }
+        }).catch(function () { say('Could not reach the Jellyfin server.' + stillInUse(), true); })
+          .finally(function () { setBusy(false); });
+    });
+
+    remove.addEventListener('click', function () {
+        const question = current.HasAccount
+            ? 'Clear your AudioVault details from this server? Jellyfin deletes your stored sign-in and asks AudioVault to sign it out. New titles can then not be downloaded for you until you add an account again.'
+            : 'Clear your unreadable AudioVault details from this server? Because they cannot be read, AudioVault cannot be asked to sign them out; change your AudioVault password if you want to be sure.';
+        if (!confirm(question)) { return; }
+        say('Clearing your AudioVault details…');
+        setBusy(true);
+        call('DELETE').then(function (r) {
+            return r.json().then(function (body) { return { ok: r.ok, body: body }; }, function () { return { ok: r.ok, body: {} }; });
+        }).then(function (res) {
+            if (!res.ok) {
+                say('Could not clear your details. ' + (res.body.Message || 'Try again.'), true);
+                return;
+            }
+            email.value = '';
+            password.value = '';
+            show({ HasAccount: false });
+            say(res.body.SignOutConfirmed
+                ? 'Your details were deleted from this server. AudioVault confirmed the sign-out.'
+                : res.body.CredentialsUnreadable
+                    ? 'Your details were deleted from this server, but they couldn\'t be read to sign out of AudioVault; change your AudioVault password if you want to be sure.'
+                    : 'Your details were deleted from this server, but AudioVault could not confirm the sign-out; change your AudioVault password if you want to be sure.');
+            // The Clear button is now hidden; continue from the email field.
+            email.focus();
+        }).catch(function () { say('Could not clear your details: the Jellyfin server could not be reached. Try again.', true); })
+          .finally(function () { setBusy(false); });
+    });
+})();
+</script>
+</body>
+</html>

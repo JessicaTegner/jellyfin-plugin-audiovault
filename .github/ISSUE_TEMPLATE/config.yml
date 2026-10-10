@@ -1,0 +1,2 @@
+# Every report needs the diagnostic report to be useful, so blank issues are off.
+blank_issues_enabled: false

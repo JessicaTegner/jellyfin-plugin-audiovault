@@ -1,0 +1,118 @@
+# On a version tag (v0.2.0.0, or v0.2.0 for build.yaml version 0.2.0.0): test, build the zip with jprm through
+# scripts/package.sh, attach it to a GitHub release and deploy the updated manifest.json to GitHub Pages. The gh-pages
+# branch only stores the manifest so earlier versions stay listed; Pages is published by deploy-pages. Every step can
+# be rerun after a partial failure. See docs/releasing.md.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}manifest.json
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Check the tag matches build.yaml
+        id: version
+        run: |
+          version=$(sed -n 's/^version: *"\{0,1\}\([0-9.]*\)"\{0,1\} *$/\1/p' build.yaml)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$version" ] && [ "$tag.0" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match version $version in build.yaml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "zip=artifacts/zips/audiovault_$version.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        env:
+          AUDIOVAULT_REQUIRE_FFMPEG: "1"
+        run: |
+          dotnet build -c Release -warnaserror
+          dotnet test -c Release --no-build
+
+      # The gh-pages branch keeps the published manifest.json, so earlier versions stay listed. jprm replaces an entry
+      # for the same version, so a rerun doesn't add it twice.
+      - name: Check out gh-pages
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch origin gh-pages
+            git worktree add pages origin/gh-pages
+          else
+            git worktree add --detach pages
+            git -C pages switch --orphan gh-pages
+          fi
+
+      - name: Build the zip and add it to the manifest
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          pages_url="${{ vars.PLUGIN_REPOSITORY_URL }}"
+          pages_url="${pages_url:-https://$owner.github.io/${GITHUB_REPOSITORY#*/}}"
+          zip_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/audiovault_${{ steps.version.outputs.version }}.zip"
+          scripts/package.sh --skip-tests --repo pages --zip-url "$zip_url" "$pages_url"
+          test -f "${{ steps.version.outputs.zip }}"
+
+      # Created only if missing; the zip is replaced so it matches the checksum in this run's manifest.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["changelog"])' "${{ steps.version.outputs.zip }}.meta.json" > release-notes.md
+            gh release create "$GITHUB_REF_NAME" --title "AudioVault ${{ steps.version.outputs.version }}" \
+              --notes-file release-notes.md --verify-tag
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${{ steps.version.outputs.zip }}" --clobber
+
+      - name: Store the manifest on gh-pages
+        run: |
+          cd pages
+          git add -A .
+          if git diff --cached --quiet; then
+            echo "gh-pages already has this manifest."
+          else
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Release ${{ steps.version.outputs.version }}"
+          fi
+          git push origin HEAD:gh-pages
+
+      # Named per attempt: a rerun uploads a fresh artifact instead of clashing with the earlier attempt's.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+          name: github-pages-${{ github.run_attempt }}
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}

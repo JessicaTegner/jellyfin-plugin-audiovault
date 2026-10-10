@@ -1,0 +1,46 @@
+name: AudioVault changed or nothing syncs
+description: The catalog doesn't sync, the settings page says the layout changed, or AudioVault's site seems different.
+labels: ["audiovault-changed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        When AudioVault changes its pages, the plugin stops reading them rather than emptying your libraries, and the settings page says "layout changed". Fixing it needs to know what changed in the page's markup.
+  - type: checkboxes
+    id: symptoms
+    attributes:
+      label: What you see
+      description: Tick everything that applies.
+      options:
+        - label: The settings page says the AudioVault layout changed or the parser needs an update.
+        - label: Sync tasks fail, or finish without finding new titles.
+        - label: Check AudioVault connection reports a problem.
+        - label: Signing in on the AudioVault account page fails although the login works on audiovault.net.
+        - label: Titles don't download when played.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you noticed and since when. Include the exact message the settings page or the task list shows.
+    validations:
+      required: true
+  - type: textarea
+    id: site
+    attributes:
+      label: What audiovault.net looks like now
+      description: Optional. Anything that looks different on the site, for example a new page layout, a new sign-in page or a Cloudflare check.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic report
+      description: |
+        In Jellyfin, open Dashboard, Plugins, AudioVault, and press "Copy diagnostic report". Paste it here. It includes the AudioVault connection check and the sync tasks' last errors.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: pages
+    attributes:
+      label: Page markup
+      description: Optional but very helpful. A short excerpt of the failing page's source (for example the first rows of the table on audiovault.net/movies), from a page you opened yourself. Don't paste anything that shows your email, and please don't run scripts that download pages.
+      render: html

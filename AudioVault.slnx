@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AudioVault.Core/AudioVault.Core.csproj" />
+    <Project Path="src/AudioVault.Sources.AudioVault/AudioVault.Sources.AudioVault.csproj" />
+    <Project Path="src/Jellyfin.Plugin.AudioVault/Jellyfin.Plugin.AudioVault.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AudioVault.Core.Tests/AudioVault.Core.Tests.csproj" />
+    <Project Path="tests/AudioVault.Sources.AudioVault.Tests/AudioVault.Sources.AudioVault.Tests.csproj" />
+    <Project Path="tests/Jellyfin.Plugin.AudioVault.Tests/Jellyfin.Plugin.AudioVault.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,87 @@
+# Weekly check that the plugin still builds against, and binds to, the Jellyfin versions on their way.
+#
+# - server: the Jellyfin internals the plugin reaches by reflection (TMDb client, PlaybackInfo action, session
+#   messages, web path) are checked against real server builds: the release the plugin targets, the latest release
+#   and the weekly unstable build, taken from the official Docker images. JellyfinInternalsTests runs the same
+#   self-check the plugin runs at startup and fails, listing each internal that no longer binds.
+# - packages: Jellyfin.Controller and Jellyfin.Model have no unstable feed on nuget.org, but release candidates
+#   (e.g. 12.0.0-rc1) appear there before each release. The newest version, prereleases included, is built and tested
+#   when it is newer than the one the plugin is pinned to.
+name: Jellyfin compatibility
+
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Internals on ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - jellyfin/jellyfin:12.2
+          - jellyfin/jellyfin:latest
+          - jellyfin/jellyfin:unstable
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Extract the Jellyfin server from ${{ matrix.image }}
+        run: |
+          docker pull "${{ matrix.image }}"
+          id=$(docker create "${{ matrix.image }}")
+          docker cp "$id:/jellyfin" "$RUNNER_TEMP/jellyfin-server"
+          docker rm "$id"
+          test -f "$RUNNER_TEMP/jellyfin-server/jellyfin.dll" || { echo "::error::No jellyfin.dll in /jellyfin of ${{ matrix.image }}; the image layout changed"; exit 1; }
+
+      - name: Check the internals bind
+        env:
+          AUDIOVAULT_JELLYFIN_DIR: ${{ runner.temp }}/jellyfin-server
+        run: dotnet test tests/Jellyfin.Plugin.AudioVault.Tests -c Release --filter "FullyQualifiedName~JellyfinInternalsTests" --logger "console;verbosity=normal"
+
+  packages:
+    name: Newest Jellyfin packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Find the newest Jellyfin.Controller on nuget.org
+        id: newest
+        run: |
+          pinned=$(sed -n 's/.*<JellyfinVersion[^>]*>\([0-9.]*\)<\/JellyfinVersion>.*/\1/p' Directory.Build.props)
+          newest=$(curl -fsSL https://api.nuget.org/v3-flatcontainer/jellyfin.controller/index.json | python3 -c '
+          import json, re, sys
+          def key(v):
+              core, _, pre = v.partition("-")
+              nums = [int(x) for x in core.split(".")]
+              # A release sorts after its prereleases; prereleases by their trailing number (rc9 < rc10).
+              n = re.findall(r"\d+", pre)
+              return (nums, 0 if pre else 1, int(n[-1]) if n else 0)
+          print(max(json.load(sys.stdin)["versions"], key=key))')
+          echo "pinned=$pinned newest=$newest"
+          echo "version=$newest" >> "$GITHUB_OUTPUT"
+          if [ "$newest" = "$pinned" ]; then echo "same=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Build against Jellyfin ${{ steps.newest.outputs.version }}
+        if: steps.newest.outputs.same != 'true'
+        run: dotnet build -c Release -p:JellyfinVersion=${{ steps.newest.outputs.version }}
+
+      # PackagingTests compares targetAbi with the pinned version, so it is left out here.
+      - name: Test against Jellyfin ${{ steps.newest.outputs.version }}
+        if: steps.newest.outputs.same != 'true'
+        run: >-
+          dotnet test -c Release --no-build -p:JellyfinVersion=${{ steps.newest.outputs.version }}
+          --filter "FullyQualifiedName!~PackagingTests" --logger "console;verbosity=normal"
