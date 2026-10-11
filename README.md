@@ -10,6 +10,7 @@ Status: beta. Expect rough edges, and please report problems.
 
 - Jellyfin 12.2.
 - Disk space for the cache of converted titles. Each title played is kept; you can set a size limit.
+- Optional: [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr), only if Cloudflare blocks your server from AudioVault. See [Cloudflare blocking](docs/admin-guide.md#cloudflare-blocking).
 
 ## Install
 
@@ -23,6 +24,8 @@ Status: beta. Expect rough edges, and please report problems.
 3. Restart Jellyfin: open the Dashboard, press "Restart", and confirm.
 
 Then open AudioVault from Plugins, press "Settings", and follow the setup checklist.
+
+If something goes wrong, see [Troubleshooting](docs/admin-guide.md#troubleshooting) in the admin guide.
 
 ## Documentation
 

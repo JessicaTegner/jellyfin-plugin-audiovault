@@ -166,7 +166,7 @@ The settings are on Dashboard → Plugins → AudioVault, below the setup checkl
 
 ### Connection
 
-- FlareSolverr URL (optional): only used if Cloudflare blocks the server, for example `http://flaresolverr:8191`.
+- FlareSolverr URL (optional): only used if Cloudflare blocks the server, for example `http://flaresolverr:8191`. Include `http://` or `https://`. See [Cloudflare blocking](#cloudflare-blocking).
 
 ### Playback
 
@@ -243,7 +243,28 @@ Its season's episode list hasn't been found yet. Lists are looked up automatical
 
 The status shows "Cloudflare is blocking this server from AudioVault. Set a FlareSolverr URL in the plugin settings." The plugin then pauses all requests to AudioVault for 15 minutes.
 
-Run [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) somewhere the server can reach, and enter its address in "FlareSolverr URL (optional)". A pause caused by the block ends as soon as a different FlareSolverr URL is saved. FlareSolverr is only used when a request is challenged.
+Run [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) somewhere the server can reach, and enter its address in "FlareSolverr URL (optional)". FlareSolverr is only used when a request is challenged. The address:
+
+- starts with `http://` or `https://`, for example `http://flaresolverr:8191` or `http://192.168.1.5:8191`;
+- is how the Jellyfin server reaches FlareSolverr. If Jellyfin runs in Docker, `localhost` means Jellyfin's own container; use FlareSolverr's container name on a shared Docker network, or the host's address;
+- doesn't end in `/v1`; the plugin adds that.
+
+Cloudflare's clearance only works from the internet address FlareSolverr got it from, so FlareSolverr has to reach the internet the same way the Jellyfin server does, not through a different VPN or proxy.
+
+A pause caused by the block ends as soon as a different FlareSolverr URL is saved. If you fix FlareSolverr without changing its address, the plugin tries again once the pause shown in the status ends.
+
+#### Common FlareSolverr errors
+
+Each status starts with "Cloudflare is blocking this server from AudioVault". The rest says what went wrong:
+
+- "Set a FlareSolverr URL in the plugin settings." when no URL is set: set one, as above.
+- "Set a FlareSolverr URL in the plugin settings." when a URL is already set: FlareSolverr got past the check, but Cloudflare still challenged the plugin's next request. Check that FlareSolverr and the Jellyfin server use the same internet address. If they do and it keeps happening, report it on [GitHub](https://github.com/JessicaTegner/jellyfin-plugin-audiovault/issues) with the diagnostic report.
+- "FlareSolverr could not get past it", followed by:
+  - "Connection refused", "Name or service not known" or another message about the connection: the server can't reach FlareSolverr at that address. Check FlareSolverr is running and the address follows the rules above.
+  - "The 'localhost' scheme is not supported", or another name in place of `localhost`: the address is missing `http://`.
+  - "404 (Not Found)" or another status code: something other than FlareSolverr answers at that address, or the address ends in `/v1`.
+  - "FlareSolverr failed:" and FlareSolverr's own message: FlareSolverr couldn't solve the check. Update FlareSolverr and look in its log.
+  - "HttpClient.Timeout of 90 seconds": FlareSolverr took too long. Restart it and look in its log.
 
 ### The account page says the sign-in expired
 
